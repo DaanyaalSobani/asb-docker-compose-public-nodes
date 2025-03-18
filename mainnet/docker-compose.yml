@@ -1,30 +1,9 @@
 services:
-  mainnet_monerod:
-    image: ghcr.io/sethforprivacy/simple-monerod:v0.18.3.4
-    restart: unless-stopped
-    user: root
-    container_name: mainnet_monerod
-    volumes:
-      - 'mainnet_monerod-data:/monerod-data/'
-    expose:
-      - ${MONEROD_PORT:?}
-    entrypoint: ''
-    command:
-      - monerod
-      - '--rpc-bind-ip=0.0.0.0'
-      - '--rpc-bind-port=${MONEROD_PORT:?}'
-      - '--confirm-external-bind'
-      - '--restricted-rpc'
-      - '--non-interactive'
-      - '--enable-dns-blocklist'
-      - '--data-dir=/monerod-data/mainnet'
   mainnet_monero-wallet-rpc:
     container_name: mainnet_monero-wallet-rpc
     image: ghcr.io/sethforprivacy/simple-monero-wallet-rpc:v0.18.3.4
     restart: unless-stopped
     user: root
-    depends_on:
-      - mainnet_monerod
     volumes:
       - 'mainnet_monero-wallet-rpc-data:/monero-wallet-rpc-data/'
     expose:
@@ -35,60 +14,24 @@ services:
       - '--rpc-bind-ip=0.0.0.0'
       - '--rpc-bind-port=${MONERO_WALLET_RPC_PORT:?}'
       - '--confirm-external-bind'
-      - '--daemon-address=mainnet_monerod:${MONEROD_PORT:?}'
+      - '--daemon-address=xmr-node.cakewallet.com:18081'
       - '--wallet-dir=/monero-wallet-rpc-data/'
       - '--disable-rpc-login'
       - '--trusted-daemon'
-  mainnet_bitcoind:
-    container_name: mainnet_bitcoind
-    image: getumbrel/bitcoind:v28.0
-    restart: unless-stopped
-    volumes:
-      - 'mainnet_bitcoind-data:/bitcoind-data/'
-    expose:
-      - ${BITCOIND_RPC_PORT:?}
-      - ${BITCOIND_P2P_PORT:?}
-    user: root
-    entrypoint: ''
-    command:
-      - 'bitcoind'
-      - '-chain=main'
-      - '-server=1'
-      - '-prune=0'
-      - '-rpcallowip=0.0.0.0/0'
-      - '-rpcbind=0.0.0.0:${BITCOIND_RPC_PORT:?}'
-      - '-bind=0.0.0.0:${BITCOIND_P2P_PORT:?}'
-      - '-datadir=/bitcoind-data/'
-      - '-dbcache=16384'
-  mainnet_electrs:
-    container_name: mainnet_electrs
-    image: getumbrel/electrs:v0.10.6
-    restart: unless-stopped
-    user: root
-    depends_on:
-      - mainnet_bitcoind
-    volumes:
-      - 'mainnet_bitcoind-data:/bitcoind-data'
-      - 'mainnet_electrs-data:/electrs-data'
-    expose:
-      - ${ELECTRS_PORT:?}
-    entrypoint: ''
-    command:
-      - electrs
-      - '--network=bitcoin'
-      - '--daemon-dir=/bitcoind-data/'
-      - '--daemon-rpc-addr=mainnet_bitcoind:${BITCOIND_RPC_PORT:?}'
-      - '--daemon-p2p-addr=mainnet_bitcoind:${BITCOIND_P2P_PORT:?}'
-      - '--db-dir=/electrs-data/db'
-      - '--electrum-rpc-addr=0.0.0.0:${ELECTRS_PORT:?}'
-      - '--log-filters=INFO'
+    # healthcheck:
+    #   test: ["CMD", "nc", "-z", "localhost", "${MONERO_WALLET_RPC_PORT}"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+    #   start_period: 20s
+ 
   mainnet_asb:
     image: ghcr.io/unstoppableswap/asb:latest
     restart: unless-stopped
     container_name: mainnet_asb
     depends_on:
       - mainnet_monero-wallet-rpc
-      - mainnet_electrs
+        # condition: service_healthy
     volumes:
       - './config_mainnet.toml:/asb-data/config_mainnet.toml'
       - 'mainnet_asb-data:/asb-data'
@@ -101,8 +44,5 @@ services:
       - '--config=/asb-data/config_mainnet.toml'
       - 'start'
 volumes:
-  mainnet_monerod-data:
   mainnet_monero-wallet-rpc-data:
-  mainnet_bitcoind-data:
-  mainnet_electrs-data:
   mainnet_asb-data:
